@@ -1,0 +1,47 @@
+name: Build Mod Menu
+on:
+  workflow_dispatch:
+  push:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Buat data cheat dari cheats.txt
+        run: python3 gen_cheats.py cheats.txt cheats_data.h
+      - name: Build library native (arm64)
+        run: |
+          set -e
+          NDK="${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}"
+          BIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          mkdir -p build/lib/arm64-v8a
+          "$BIN/aarch64-linux-android23-clang++" -std=c++17 -O2 -fPIC -shared \
+            -fvisibility=hidden -fno-exceptions -fno-rtti -static-libstdc++ \
+            -Wl,-z,max-page-size=16384 -Wl,--strip-all \
+            -o build/lib/arm64-v8a/libmodmenu.so modmenu.cpp -llog -ldl
+          N=$("$BIN/llvm-nm" -D build/lib/arm64-v8a/libmodmenu.so | grep -c "Java_id_penyu_modmenu_ModMenu_")
+          echo "Simbol JNI terekspor: $N (harus 14)"
+          test "$N" -ge 14
+      - name: Build dex (UI menu)
+        run: |
+          set -e
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          JAR=$(ls -d "$SDK"/platforms/android-*/android.jar | sort -V | tail -1)
+          BT=$(ls -d "$SDK"/build-tools/*/ | sort -V | tail -1)
+          echo "android.jar=$JAR build-tools=$BT"
+          mkdir -p build/classes
+          javac --release 8 -encoding UTF-8 -classpath "$JAR" -d build/classes ModMenu.java
+          "$BT/d8" --release --min-api 23 --lib "$JAR" --output build $(find build/classes -name '*.class')
+          mv build/classes.dex build/classes2.dex
+          cp PATCH_SMALI.txt build/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: modmenu-hasil
+          path: |
+            build/lib
+            build/classes2.dex
+            build/PATCH_SMALI.txt

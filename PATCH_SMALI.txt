@@ -1,0 +1,14 @@
+Tempel method ini ke dalam kelas  id/penyu/hmbtn/HmActivity  (di classes.dex).
+Kelas ini belum punya onCreate, jadi cukup ditambahkan di akhir file smali:
+
+.method protected onCreate(Landroid/os/Bundle;)V
+    .locals 0
+
+    invoke-static {p0}, Lid/penyu/modmenu/ModMenu;->preload(Landroid/app/Activity;)V
+
+    invoke-super {p0, p1}, Landroid/app/NativeActivity;->onCreate(Landroid/os/Bundle;)V
+
+    invoke-static {p0}, Lid/penyu/modmenu/ModMenu;->start(Landroid/app/Activity;)V
+
+    return-void
+.end method
